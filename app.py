@@ -10,25 +10,27 @@ import mediapipe as mp
 from model import KeyPointClassifier
 
 
-def main(img, min_detection_confidence=0.7, min_tracking_confidence=0.5):
+def main(img=None, min_detection_confidence=0.25, min_tracking_confidence=0.5):
     # Model load #############################################################
+
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
+        static_image_mode=False,
         max_num_hands=2,
         min_detection_confidence=min_detection_confidence,
         min_tracking_confidence=min_tracking_confidence,
     )
 
-    if img is None:
-        raise ValueError("Image is not given")
+    # if img is None:
+    #     raise ValueError("Image is not given")
 
-    # Make sure the image is a valid numpy array
-    if not isinstance(img, np.ndarray):
-        raise ValueError("Invalid input type")
+    # # Make sure the image is a valid numpy array
+    # if not isinstance(img, np.ndarray):
+    #     raise ValueError("Invalid input type")
 
-    # Ensure the image has three channels (BGR)
-    if img.shape[2] != 3:
-        raise ValueError("Invalid number of channels")
+    # # Ensure the image has three channels (BGR)
+    # if img.shape[2] != 3:
+    #     raise ValueError("Invalid number of channels")
 
     keypoint_classifier = KeyPointClassifier()
 
@@ -42,45 +44,59 @@ def main(img, min_detection_confidence=0.7, min_tracking_confidence=0.5):
     keypoint_classifier_labels = ["1", "2", "3", "4", "5"]
     # print(keypoint_classifier_labels)
     # image acquisition #####################################################
-    image = img
+    for i in range(2):
+        if i == 0:
+            image = cv.imread("sample images/sample_1.jpg")
+        else:
+            image = img
 
-    image = cv.flip(image, 1)  # Mirror display
-    debug_image = copy.deepcopy(image)
+        image = cv.flip(image, 1)  # Mirror display
+        debug_image = copy.deepcopy(image)
 
-    # Detection implementation #############################################################
-    image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-    image.flags.writeable = False
-    results = hands.process(image)
-    image.flags.writeable = True
+        # Detection implementation #############################################################
+        image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+        image.flags.writeable = False
+        results = hands.process(image)
+        image.flags.writeable = True
 
-    if results.multi_hand_landmarks is None:
-        return 0, 0
-    #  ####################################################################
-    final_val = 0
-    for hand_landmarks, handedness in zip(
-        results.multi_hand_landmarks, results.multi_handedness
-    ):
-        # Landmark calculation
-        landmark_list = calc_landmark_list(debug_image, hand_landmarks)
+        if results.multi_hand_landmarks is None:
+            print("No hand")
+            return 0, 0
+        #  ####################################################################
+        final_val = 0
 
-        # Conversion to relative coordinates / normalized coordinates
-        pre_processed_landmark_list = pre_process_landmark(landmark_list)
+        i = 0
+        for hand_landmarks, handedness in zip(
+            results.multi_hand_landmarks, results.multi_handedness
+        ):
+            if i == 2:
+                break
+            # Landmark calculation
+            landmark_list = calc_landmark_list(debug_image, hand_landmarks)
 
-        # Hand sign classification
-        hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
+            # Conversion to relative coordinates / normalized coordinates
+            pre_processed_landmark_list = pre_process_landmark(landmark_list)
 
-        final_val += int(keypoint_classifier_labels[hand_sign_id])
+            # Hand sign classification
+            hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
+            print("hand_sign_id: ", hand_sign_id)
+            final_val += int(keypoint_classifier_labels[hand_sign_id])
+            i += 1
 
-    # if both hands are availale take average of both confidence scores
-    score = 0
-    # print("results: ", results.multi_handedness)
-    if results.multi_handedness[1] is not None:
-        score += results.multi_handedness[1].classification[0].score
-    if results.multi_handedness[0] is not None:
-        score += results.multi_handedness[0].classification[0].score
+        # if both hands are availale take average of both confidence scores
+        score = 0
+        # print("results: ", results.multi_handedness)
+        num_hands = len(results.multi_handedness)
+        print("num_hands: ", num_hands)
+        if num_hands == 2:
+            score += results.multi_handedness[0].classification[0].score
+            score += results.multi_handedness[1].classification[0].score
+        else:
+            score += results.multi_handedness[0].classification[0].score
 
-    score /= 2
-    # return with 4 decimal places
+        score /= 2
+        # return with 4 decimal places
+        print("final_val: ", final_val, "score: ", round(score, 4))
     return final_val, round(score, 4)
 
 

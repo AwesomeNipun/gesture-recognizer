@@ -19,7 +19,7 @@ async def analyze_image(file: UploadFile = File(...)):
         # print("Image received")
         contents = file.file.read()
         nparr = np.frombuffer(contents, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         # if the image is not given
         if img is None:
